@@ -2,9 +2,10 @@
   "name": "solarabot",
   "version": "1.0.0",
   "description": "Minecraft bot for kit delivery",
-  "main": "bot.js",
+  "main": "server.js",
   "scripts": {
-    "start": "node bot.js",
+    "start": "node server.js",
+    "bot": "node bot.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
@@ -15,5 +16,8 @@
     "mineflayer-pathfinder": "^2.4.5",
     "path": "^0.12.7",
     "vec3": "^0.1.8"
+  },
+  "engines": {
+    "node": "16.x"
   }
 }
