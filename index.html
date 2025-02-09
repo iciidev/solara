@@ -1,0 +1,1409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SolaraBot Timeouts</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <style>
+        :root {
+            --gradient-1: #ff8ecd;
+            --gradient-2: #5c9dff;
+            --gradient-3: #b78eff;
+            --blur-amount: 80px;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            background: #8ba4ff;
+            color: white;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        .background-bubble {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(var(--blur-amount));
+            z-index: 0;
+            animation: float 20s infinite ease-in-out;
+            opacity: 0.6;
+            background: radial-gradient(circle at center, var(--gradient-1), var(--gradient-2));
+            mix-blend-mode: soft-light;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            25% { transform: translate(5%, 5%) scale(1.1); }
+            50% { transform: translate(-5%, 10%) scale(0.9); }
+            75% { transform: translate(5%, -5%) scale(1.05); }
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 4rem;
+            padding-top: 3rem;
+        }
+
+        h1 {
+            font-size: 4rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+            background: linear-gradient(45deg, #fff, #f0f0f0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -1px;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            margin-bottom: 2rem;
+            font-weight: 300;
+        }
+
+        .timeout-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.3s ease;
+        }
+
+        .timeout-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .timeout-card img {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .timeout-info {
+            flex-grow: 1;
+            margin-left: 1.5rem;
+        }
+
+        .timeout-info h3 {
+            margin: 0;
+            font-size: 1.4rem;
+            font-weight: 600;
+        }
+
+        .timeout-info p {
+            margin: 0.3rem 0;
+            opacity: 0.9;
+            font-size: 0.9rem;
+        }
+
+        .time-left {
+            color: #ffd700;
+            font-weight: 600;
+            font-size: 1rem !important;
+        }
+
+        .btn {
+            padding: 0.8rem 1.5rem;
+            border-radius: 25px;
+            border: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-size: 0.9rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, var(--gradient-1), var(--gradient-2));
+            color: white;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        .admin-controls {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 20px;
+            border: none;
+            padding: 2rem;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            min-width: 300px;
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .modal-content h2 {
+            color: #333;
+            margin-bottom: 1.5rem;
+            font-weight: 600;
+        }
+
+        .modal-content input {
+            border: 2px solid #e0e0e0;
+            border-radius: 15px;
+            padding: 1rem;
+            font-size: 1rem;
+            width: 100%;
+            margin: 1rem 0;
+            transition: all 0.3s ease;
+        }
+
+        .modal-content input:focus {
+            outline: none;
+            border-color: var(--gradient-1);
+            box-shadow: 0 0 0 3px rgba(255, 107, 157, 0.2);
+        }
+
+        .modal-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        /* Enhanced bubble animations */
+        .bubble-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .bubble {
+            position: absolute;
+            background: radial-gradient(circle at 30% 30%, 
+                var(--gradient-1) 0%, 
+                var(--gradient-2) 45%, 
+                var(--gradient-3) 100%);
+            border-radius: 50%;
+            filter: blur(var(--blur-amount));
+            opacity: 0.7;
+            mix-blend-mode: screen;
+            animation: float-bubble var(--duration) ease-in-out infinite;
+            transform-origin: center center;
+        }
+
+        @keyframes float-bubble {
+            0%, 100% {
+                transform: translate(0, 0) scale(1);
+            }
+            33% {
+                transform: translate(var(--move-x), var(--move-y)) scale(1.1);
+            }
+            66% {
+                transform: translate(calc(var(--move-x) * -0.5), calc(var(--move-y) * 1.2)) scale(0.95);
+            }
+        }
+
+        .axis-line {
+            position: absolute;
+            background: linear-gradient(90deg, 
+                transparent 0%, 
+                rgba(255, 255, 255, 0.1) 25%, 
+                rgba(255, 255, 255, 0.1) 75%, 
+                transparent 100%);
+            pointer-events: none;
+            transform-origin: center;
+        }
+
+        .axis-line.horizontal {
+            height: 1px;
+            width: 100%;
+            left: 0;
+        }
+
+        .axis-line.vertical {
+            width: 1px;
+            height: 100%;
+            top: 0;
+        }
+
+        .axis-line.diagonal {
+            height: 1px;
+            width: 141.4%; /* √2 * 100% to reach corners */
+        }
+
+        .axis-label {
+            position: absolute;
+            color: rgba(255, 255, 255, 0.3);
+            font-size: 12px;
+            pointer-events: none;
+            text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            font-weight: bold;
+        }
+
+        .coordinate-point {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .coordinate-point::after {
+            content: '';
+            position: absolute;
+            width: 200%;
+            height: 200%;
+            left: -50%;
+            top: -50%;
+            background: inherit;
+            border-radius: 50%;
+            opacity: 0.1;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.1; }
+            50% { transform: scale(2); opacity: 0.05; }
+            100% { transform: scale(1); opacity: 0.1; }
+        }
+
+        .coordinate-point:hover {
+            transform: translate(-50%, -50%) scale(2);
+            z-index: 1000;
+        }
+
+        .coordinate-point.death {
+            background: rgba(255, 50, 50, 0.9);
+            box-shadow: 0 0 20px rgba(255, 50, 50, 0.5);
+        }
+
+        .coordinate-point.teleport {
+            background: rgba(50, 255, 50, 0.9);
+            box-shadow: 0 0 20px rgba(50, 255, 50, 0.5);
+        }
+
+        .coordinate-point.origin {
+            background: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.7);
+            width: 12px;
+            height: 12px;
+        }
+
+        .coordinate-tooltip {
+            position: fixed;
+            background: rgba(10, 10, 15, 0.95);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 1000;
+            display: none;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
+            min-width: 200px;
+            backdrop-filter: blur(10px);
+        }
+
+        .tooltip-header {
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .tooltip-coords {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 5px;
+            margin-bottom: 8px;
+        }
+
+        .tooltip-label {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .stats-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(10, 10, 15, 0.95);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            font-size: 12px;
+            backdrop-filter: blur(10px);
+        }
+
+        .world-border {
+            position: absolute;
+            border: 2px solid rgba(255, 50, 50, 0.3);
+            pointer-events: none;
+            box-shadow: 0 0 50px rgba(255, 50, 50, 0.1);
+        }
+
+        .scale-indicator {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(10, 10, 15, 0.95);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+        }
+
+        .map-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .map-controls button {
+            background: rgba(10, 10, 15, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .map-controls button:hover {
+            background: rgba(20, 20, 30, 0.95);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .zoom-controls button {
+            background: rgba(10, 10, 15, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+        }
+
+        .zoom-controls button:hover {
+            background: rgba(20, 20, 30, 0.95);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .map-container {
+            width: 100%;
+            height: 600px;
+            background: #0a0a0f;
+            border-radius: 20px;
+            overflow: hidden;
+            margin: 20px 0;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+        }
+
+        #heatmap {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+            background: #0a0a0f;
+            background-image: 
+                radial-gradient(circle at center, rgba(0, 150, 255, 0.03) 0%, transparent 70%),
+                linear-gradient(rgba(255, 255, 255, .03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, .03) 1px, transparent 1px);
+            background-size: 100% 100%, 50px 50px, 50px 50px;
+            cursor: grab;
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            justify-content: center;
+        }
+
+        .btn-tab {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            opacity: 0.7;
+        }
+
+        .btn-tab.active {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.4);
+            opacity: 1;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        #current-order-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 200px;
+        }
+
+        .current-order-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 2rem;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            max-width: 400px;
+            width: 100%;
+        }
+
+        .current-order-card img {
+            width: 100px;
+            height: 100px;
+            border-radius: 20px;
+            margin-bottom: 1rem;
+            border: 3px solid rgba(255, 255, 255, 0.5);
+        }
+
+        .no-order {
+            color: rgba(255, 255, 255, 0.7);
+            font-style: italic;
+        }
+
+        .clear-button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background-color 0.3s ease;
+            background: #ff4444;
+        }
+
+        .clear-button:hover {
+            background: #ff6666 !important;
+        }
+
+        .clear-button i {
+            font-size: 14px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+
+        .admin-panel {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 2rem;
+            margin-top: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .admin-panel h2 {
+            color: #fff;
+            margin-bottom: 20px;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .admin-buttons {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn-danger {
+            background: linear-gradient(45deg, #ff4444, #cc0000);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: linear-gradient(45deg, #ff6666, #ff4444);
+            transform: translateY(-2px);
+        }
+
+        .btn-warning {
+            background: linear-gradient(45deg, #f0ad4e, #ec971f);
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: linear-gradient(45deg, #f4c37d, #f0ad4e);
+            transform: translateY(-2px);
+        }
+
+        @media (max-width: 768px) {
+            .timeout-card {
+                flex-direction: column;
+                text-align: center;
+                padding: 2rem;
+            }
+
+            .timeout-info {
+                margin: 1.5rem 0;
+            }
+
+            .admin-controls {
+                margin-top: 1.5rem;
+                justify-content: center;
+            }
+
+            h1 {
+                font-size: 3rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Dynamic Bubble Container -->
+    <div class="bubble-container">
+        <!-- Bubbles will be added here via JavaScript -->
+    </div>
+
+    <!-- Background Bubbles -->
+    <div class="background-bubble" style="width: 600px; height: 600px; top: -10%; left: -10%;"></div>
+    <div class="background-bubble" style="width: 500px; height: 500px; top: 40%; right: -10%;"></div>
+    <div class="background-bubble" style="width: 400px; height: 400px; bottom: -10%; left: 50%;"></div>
+
+    <div class="container">
+        <div class="header">
+            <h1>SolaraBot Timeouts</h1>
+            <p class="subtitle">Manage your kit cooldowns with ease</p>
+            <div class="nav-tabs">
+                <button class="btn btn-tab active" onclick="showTab('timeouts')">Timeouts</button>
+                <button class="btn btn-tab" onclick="showTab('current-order')">Current Order</button>
+                <button class="btn btn-tab" onclick="showTab('admin')">Admin</button>
+                <button class="btn btn-tab" onclick="showTab('heatmap')">Heatmap</button>
+            </div>
+        </div>
+        
+        <div id="timeouts-tab" class="tab-content active">
+            <div class="action-buttons">
+                <button class="btn btn-primary" onclick="refreshTimeouts()">
+                    <i class="fas fa-sync"></i> Refresh List
+                </button>
+                <button class="btn btn-danger" onclick="clearAllTimeouts()">
+                    <i class="fas fa-trash"></i> Clear All Timeouts
+                </button>
+            </div>
+            <div id="timeouts-container">
+                <!-- Timeout cards will be added here -->
+            </div>
+        </div>
+
+        <div id="current-order-tab" class="tab-content">
+            <div class="action-buttons">
+                <button class="btn btn-primary" onclick="refreshCurrentOrder()">
+                    <i class="fas fa-sync"></i> Refresh Order
+                </button>
+                <button class="btn btn-danger" onclick="clearCurrentOrder()">
+                    <i class="fas fa-times"></i> Clear Order
+                </button>
+            </div>
+            <div id="current-order-container">
+                <!-- Current order will be shown here -->
+            </div>
+        </div>
+
+        <div id="admin-tab" class="tab-content">
+            <div class="admin-panel">
+                <h2>Bot Controls</h2>
+                <div class="admin-buttons">
+                    <button class="btn btn-danger" onclick="killBot()">
+                        <i class="fas fa-skull"></i> Kill Bot
+                    </button>
+                    <button class="btn btn-warning" onclick="clearCurrentOrder()">
+                        <i class="fas fa-times"></i> Force Clear Order
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="heatmap-tab" class="tab-content">
+            <div class="map-controls">
+                <button class="btn btn-primary" onclick="refreshCoordinates()">
+                    <i class="fas fa-sync"></i> Refresh Data
+                </button>
+                <button class="btn btn-danger" onclick="clearCoordinates('all')">
+                    <i class="fas fa-trash"></i> Clear All
+                </button>
+                <button class="btn btn-warning" onclick="clearCoordinates('deaths')">
+                    <i class="fas fa-skull"></i> Clear Deaths
+                </button>
+                <button class="btn btn-warning" onclick="clearCoordinates('teleports')">
+                    <i class="fas fa-map-marker"></i> Clear Teleports
+                </button>
+            </div>
+            <div class="map-container">
+                <div id="heatmap"></div>
+                <div class="axis x"></div>
+                <div class="axis z"></div>
+                <div class="zoom-controls">
+                    <button onclick="adjustZoom(1.2)"><i class="fas fa-plus"></i></button>
+                    <button onclick="adjustZoom(0.8)"><i class="fas fa-minus"></i></button>
+                </div>
+                <div class="coordinate-tooltip"></div>
+            </div>
+            <div class="map-legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ff0000"></div>
+                    <span>Deaths</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #00ff00"></div>
+                    <span>Teleports</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Edit Timeout Modal -->
+        <div id="editModal" class="modal">
+            <div class="modal-content">
+                <h2>Edit Timeout</h2>
+                <input type="number" id="minutesInput" placeholder="Enter minutes">
+                <div class="modal-buttons">
+                    <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                    <button class="btn btn-primary" onclick="saveTimeout()">Save Changes</button>
+                </div>
+            </div>
+        </div>
+
+        <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/heatmap.js/2.0.2/heatmap.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/leaflet-heatmap@1.0.0/leaflet-heatmap.js"></script>
+        <script>
+            let currentEditUsername = '';
+
+            function formatTimeLeft(endTime) {
+                const now = Date.now();
+                const timeLeft = endTime - now;
+                
+                if (timeLeft <= 0) return 'Expired';
+                
+                const minutes = Math.floor(timeLeft / 60000);
+                const seconds = Math.floor((timeLeft % 60000) / 1000);
+                
+                if (minutes > 0) {
+                    return `${minutes} minute${minutes === 1 ? '' : 's'} ${seconds} seconds left`;
+                }
+                return `${seconds} seconds left`;
+            }
+
+            async function resetTimeout(username) {
+                try {
+                    const response = await fetch(`/api/admin/reset/${username}`, {
+                        method: 'DELETE'
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        refreshTimeouts();
+                    }
+                } catch (error) {
+                    console.error('Error resetting timeout:', error);
+                }
+            }
+
+            function openEditModal(username) {
+                currentEditUsername = username;
+                document.getElementById('editModal').style.display = 'block';
+                document.getElementById('minutesInput').value = '';
+                setTimeout(() => document.getElementById('minutesInput').focus(), 100);
+            }
+
+            function closeModal() {
+                document.getElementById('editModal').style.display = 'none';
+                document.getElementById('minutesInput').value = '';
+                currentEditUsername = '';
+            }
+
+            async function saveTimeout() {
+                const minutes = document.getElementById('minutesInput').value;
+                if (!minutes || isNaN(minutes) || minutes <= 0) {
+                    alert('Please enter a valid number of minutes (greater than 0)');
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`/api/admin/edit/${currentEditUsername}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ minutes: parseInt(minutes) })
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        closeModal();
+                        refreshTimeouts();
+                    } else {
+                        alert('Failed to update timeout: ' + data.message);
+                    }
+                } catch (error) {
+                    console.error('Error updating timeout:', error);
+                    alert('Error updating timeout. Check console for details.');
+                }
+            }
+
+            function showTab(tabName) {
+                // Hide all tabs
+                document.querySelectorAll('.tab-content').forEach(tab => {
+                    tab.classList.remove('active');
+                });
+                document.querySelectorAll('.btn-tab').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+
+                // Show selected tab
+                document.getElementById(`${tabName}-tab`).classList.add('active');
+                document.querySelector(`[onclick="showTab('${tabName}')"]`).classList.add('active');
+            }
+
+            async function refreshCurrentOrder() {
+                const container = document.getElementById('current-order-container');
+                
+                try {
+                    const response = await fetch('/api/current-order');
+                    const order = await response.json();
+
+                    if (order) {
+                        const timeAgo = Math.floor((Date.now() - order.timestamp) / 1000);
+                        const timeAgoText = timeAgo === 1 ? '1 second' : `${timeAgo} seconds`;
+                        
+                        container.innerHTML = `
+                            <div class="current-order-card">
+                                <img src="https://mc-heads.net/avatar/${order.username}" alt="${order.username}'s skin">
+                                <h3>${order.username}</h3>
+                                <p>Currently processing: ${order.orderType}</p>
+                                <p>Started ${timeAgoText} ago</p>
+                            </div>
+                        `;
+                    } else {
+                        container.innerHTML = `
+                            <div class="current-order-card">
+                                <p class="no-order">No active orders</p>
+                            </div>
+                        `;
+                    }
+                } catch (error) {
+                    console.error('Error fetching current order:', error);
+                    container.innerHTML = '<p class="error">Error loading current order</p>';
+                }
+            }
+
+            async function clearCurrentOrder() {
+                try {
+                    const response = await fetch('/api/current-order', {
+                        method: 'DELETE'
+                    });
+                    if (response.ok) {
+                        // Refresh the display after clearing
+                        refreshCurrentOrder();
+                    } else {
+                        console.error('Failed to clear order');
+                    }
+                } catch (error) {
+                    console.error('Error clearing order:', error);
+                }
+            }
+
+            async function clearAllTimeouts() {
+                if (!confirm('Are you sure you want to clear all timeouts?')) {
+                    return;
+                }
+                
+                try {
+                    const response = await fetch('/api/admin/reset-all', {
+                        method: 'DELETE'
+                    });
+                    
+                    if (response.ok) {
+                        refreshTimeouts();
+                    } else {
+                        console.error('Failed to clear all timeouts');
+                    }
+                } catch (error) {
+                    console.error('Error clearing all timeouts:', error);
+                }
+            }
+
+            function refreshTimeouts() {
+                fetch('/api/timeouts')
+                    .then(response => response.json())
+                    .then(timeouts => {
+                        const timeoutsDiv = document.getElementById('timeouts-container');
+                        if (Object.keys(timeouts).length === 0) {
+                            timeoutsDiv.innerHTML = '<div class="no-timeouts">No active timeouts</div>';
+                            return;
+                        }
+
+                        const html = Object.values(timeouts)
+                            .sort((a, b) => b.endTime - a.endTime)
+                            .map(timeout => `
+                                <div class="timeout-card">
+                                    <img src="${timeout.skinUrl}" alt="${timeout.username}'s skin" />
+                                    <div class="timeout-info">
+                                        <h3>${timeout.username}</h3>
+                                        <p>Started: ${new Date(timeout.startTime).toLocaleString()}</p>
+                                        <p>Ends: ${new Date(timeout.endTime).toLocaleString()}</p>
+                                        <p class="time-left">${formatTimeLeft(timeout.endTime)}</p>
+                                    </div>
+                                    <div class="admin-controls">
+                                        <button class="btn btn-secondary" onclick="resetTimeout('${timeout.username}')">Reset</button>
+                                        <button class="btn btn-primary" onclick="openEditModal('${timeout.username}')">Edit</button>
+                                    </div>
+                                </div>
+                            `)
+                            .join('');
+                        
+                        timeoutsDiv.innerHTML = html;
+                    });
+            }
+
+            async function killBot() {
+                try {
+                    const response = await fetch('/api/admin/kill-bot', {
+                        method: 'POST'
+                    });
+                    if (!response.ok) {
+                        console.error('Failed to kill bot');
+                    }
+                } catch (error) {
+                    console.error('Error killing bot:', error);
+                }
+            }
+
+            // Close modal when clicking outside
+            window.onclick = function(event) {
+                const modal = document.getElementById('editModal');
+                if (event.target === modal) {
+                    closeModal();
+                }
+            }
+
+            // Animate background bubbles
+            document.querySelectorAll('.background-bubble').forEach((bubble, index) => {
+                bubble.style.animationDelay = `${index * 2}s`;
+            });
+
+            // Create animated bubbles
+            function createBubbles() {
+                const container = document.querySelector('.bubble-container');
+                const bubbleCount = 5; // Reduced number for more prominent bubbles
+
+                for (let i = 0; i < bubbleCount; i++) {
+                    const bubble = document.createElement('div');
+                    bubble.className = 'bubble';
+                    
+                    // Larger size between 300px and 800px
+                    const size = Math.random() * 500 + 300;
+                    bubble.style.width = `${size}px`;
+                    bubble.style.height = `${size}px`;
+                    
+                    // Adjusted positioning for better coverage
+                    bubble.style.left = `${Math.random() * 80 - 20}%`;
+                    bubble.style.top = `${Math.random() * 80 - 20}%`;
+                    
+                    // Gentler movement
+                    const moveX = (Math.random() * 20 - 10) + '%';
+                    const moveY = (Math.random() * 20 - 10) + '%';
+                    bubble.style.setProperty('--move-x', moveX);
+                    bubble.style.setProperty('--move-y', moveY);
+                    
+                    // Slower animation for more visible movement
+                    const duration = (Math.random() * 15 + 25) + 's';
+                    bubble.style.setProperty('--duration', duration);
+                    
+                    // Staggered delays
+                    bubble.style.animationDelay = `${Math.random() * -30}s`;
+                    
+                    container.appendChild(bubble);
+                }
+            }
+
+            // Initialize bubbles
+            document.addEventListener('DOMContentLoaded', createBubbles);
+
+            // Refresh every 5 seconds
+            setInterval(refreshTimeouts, 5000);
+            // Initial load
+            refreshTimeouts();
+
+            // Auto-refresh current order every 5 seconds
+            setInterval(refreshCurrentOrder, 5000);
+            
+            // Initial load of current order
+            refreshCurrentOrder();
+
+            const WORLD_BORDER = 30000000; // 30 million blocks
+            const MIN_SCALE = 0.00001; // Scale when fully zoomed out (shows whole world)
+            const MAX_SCALE = 1; // Increased max zoom
+            let mapScale = 0.1; // Start zoomed out
+            let mapOffsetX = 0;
+            let mapOffsetZ = 0;
+            let isDragging = false;
+            let lastX = 0;
+            let lastZ = 0;
+
+            function mcToPixel(x, z) {
+                const container = document.getElementById('heatmap');
+                const centerX = container.offsetWidth / 2;
+                const centerZ = container.offsetHeight / 2;
+                
+                // Use a larger scale factor to make points more visible
+                const scale = 1; // 1 pixel per block
+                return {
+                    x: centerX + (x * scale),
+                    z: centerZ + (z * scale)
+                };
+            }
+
+            async function refreshCoordinates() {
+                try {
+                    const response = await fetch('/api/coordinates');
+                    const data = await response.json();
+                    
+                    const heatmap = document.getElementById('heatmap');
+                    heatmap.innerHTML = ''; // Clear existing points
+                    
+                    // Create a container for all points that will be transformed
+                    const pointsContainer = document.createElement('div');
+                    pointsContainer.className = 'points-container';
+                    pointsContainer.style.position = 'absolute';
+                    pointsContainer.style.width = '100%';
+                    pointsContainer.style.height = '100%';
+                    pointsContainer.style.transform = `translate(${mapOffsetX}px, ${mapOffsetZ}px) scale(${mapScale})`;
+                    pointsContainer.style.transformOrigin = 'center';
+                    
+                    // Add axis lines
+                    const axisLines = [
+                        { angle: 0, label: '+X' },
+                        { angle: 180, label: '-X' },
+                        { angle: 90, label: '+Z' },
+                        { angle: 270, label: '-Z' }
+                    ];
+
+                    axisLines.forEach(({ angle, label }) => {
+                        const line = document.createElement('div');
+                        line.className = 'axis-line ' + (angle % 180 === 0 ? 'horizontal' : 'vertical');
+                        
+                        if (angle % 180 === 0) {
+                            line.style.top = '50%';
+                        } else {
+                            line.style.left = '50%';
+                        }
+                        
+                        const labelDiv = document.createElement('div');
+                        labelDiv.className = 'axis-label';
+                        labelDiv.textContent = label;
+                        
+                        switch (angle) {
+                            case 0:
+                                labelDiv.style.right = '10px';
+                                labelDiv.style.top = '50%';
+                                break;
+                            case 180:
+                                labelDiv.style.left = '10px';
+                                labelDiv.style.top = '50%';
+                                break;
+                            case 90:
+                                labelDiv.style.bottom = '10px';
+                                labelDiv.style.left = '50%';
+                                break;
+                            case 270:
+                                labelDiv.style.top = '10px';
+                                labelDiv.style.left = '50%';
+                                break;
+                        }
+                        
+                        pointsContainer.appendChild(line);
+                        pointsContainer.appendChild(labelDiv);
+                    });
+
+                    // Add origin marker
+                    const origin = document.createElement('div');
+                    origin.className = 'coordinate-point origin';
+                    const originPos = mcToPixel(0, 0);
+                    origin.style.left = originPos.x + 'px';
+                    origin.style.top = originPos.z + 'px';
+                    origin.setAttribute('data-info', JSON.stringify({
+                        type: 'Origin (0,0)',
+                        x: 0, y: 0, z: 0
+                    }));
+                    pointsContainer.appendChild(origin);
+
+                    // Add all points
+                    [...data.deaths, ...data.teleports].forEach(coord => {
+                        const point = document.createElement('div');
+                        point.className = `coordinate-point ${coord.timestamp ? 'death' : 'teleport'}`;
+                        
+                        const pos = mcToPixel(coord.x, coord.z);
+                        point.style.left = pos.x + 'px';
+                        point.style.top = pos.z + 'px';
+                        
+                        point.setAttribute('data-info', JSON.stringify({
+                            type: coord.timestamp ? 'Death' : 'Teleport',
+                            x: coord.x,
+                            y: coord.y,
+                            z: coord.z,
+                            username: coord.username,
+                            timestamp: coord.timestamp
+                        }));
+                        
+                        point.addEventListener('mouseover', showTooltip);
+                        point.addEventListener('mouseout', hideTooltip);
+                        
+                        pointsContainer.appendChild(point);
+                    });
+
+                    // Add the container to the heatmap
+                    heatmap.appendChild(pointsContainer);
+
+                    // Add stats panel (outside the transformed container)
+                    const statsPanel = document.createElement('div');
+                    statsPanel.className = 'stats-panel';
+                    statsPanel.innerHTML = `
+                        <div style="font-weight: bold; margin-bottom: 8px;">Statistics</div>
+                        <div>Deaths: ${data.deaths.length}</div>
+                        <div>Teleports: ${data.teleports.length}</div>
+                    `;
+                    heatmap.appendChild(statsPanel);
+
+                } catch (error) {
+                    console.error('Error loading data:', error);
+                }
+            }
+
+            function getTimeAgo(timestamp) {
+                const now = Date.now();
+                const diff = now - timestamp;
+                const minutes = Math.floor(diff / 60000);
+                const hours = Math.floor(minutes / 60);
+                const days = Math.floor(hours / 24);
+
+                if (days > 0) return `${days} day${days === 1 ? '' : 's'} ago`;
+                if (hours > 0) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+                if (minutes > 0) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+                return 'Just now';
+            }
+
+            function showTooltip(e) {
+                const tooltip = document.querySelector('.coordinate-tooltip');
+                const info = JSON.parse(e.target.getAttribute('data-info'));
+                
+                let tooltipContent = `
+                    <div class="tooltip-header" style="color: ${info.type.includes('Death') ? '#ff5555' : '#55ff55'}">
+                        ${info.type}
+                    </div>
+                    <div class="tooltip-coords">
+                        <span class="tooltip-label">X:</span>
+                        <span>${formatCoordinate(info.x)}</span>
+                        <span class="tooltip-label">Y:</span>
+                        <span>${formatCoordinate(info.y)}</span>
+                        <span class="tooltip-label">Z:</span>
+                        <span>${formatCoordinate(info.z)}</span>
+                    </div>
+                `;
+
+                if (info.username) {
+                    tooltipContent += `
+                        <div style="margin-top: 8px;">
+                            <span class="tooltip-label">Player:</span>
+                            <span style="color: #55ffff">${info.username}</span>
+                        </div>
+                    `;
+                }
+
+                if (info.timestamp) {
+                    const timeAgo = getTimeAgo(info.timestamp);
+                    tooltipContent += `
+                        <div style="margin-top: 4px;">
+                            <span class="tooltip-label">Time:</span>
+                            <span>${timeAgo}</span>
+                            <div style="font-size: 10px; color: rgba(255,255,255,0.5);">
+                                ${new Date(info.timestamp).toLocaleString()}
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                tooltip.innerHTML = tooltipContent;
+                tooltip.style.display = 'block';
+                
+                // Position tooltip to stay within viewport
+                const rect = e.target.getBoundingClientRect();
+                const tooltipRect = tooltip.getBoundingClientRect();
+                
+                let left = e.pageX + 10;
+                let top = e.pageY + 10;
+                
+                if (left + tooltipRect.width > window.innerWidth) {
+                    left = e.pageX - tooltipRect.width - 10;
+                }
+                if (top + tooltipRect.height > window.innerHeight) {
+                    top = e.pageY - tooltipRect.height - 10;
+                }
+                
+                tooltip.style.left = left + 'px';
+                tooltip.style.top = top + 'px';
+            }
+
+            function hideTooltip() {
+                document.querySelector('.coordinate-tooltip').style.display = 'none';
+            }
+
+            function handleWheel(e) {
+                e.preventDefault(); // Prevent page scroll
+                
+                // More granular zoom factors for smoother zooming
+                const zoomFactor = e.deltaY > 0 ? 0.95 : 1.05;
+                
+                // Get mouse position relative to container
+                const container = document.getElementById('heatmap');
+                const rect = container.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseZ = e.clientY - rect.top;
+                
+                // Calculate world coordinates before zoom
+                const oldScale = mapScale;
+                const worldX = (mouseX - mapOffsetX - container.offsetWidth / 2) / oldScale;
+                const worldZ = (mouseZ - mapOffsetZ - container.offsetHeight / 2) / oldScale;
+                
+                // Apply zoom
+                const newScale = mapScale * zoomFactor;
+                if (newScale >= MIN_SCALE && newScale <= MAX_SCALE) {
+                    mapScale = newScale;
+                    
+                    // Adjust offset to keep mouse position stable
+                    mapOffsetX = mouseX - (worldX * mapScale + container.offsetWidth / 2);
+                    mapOffsetZ = mouseZ - (worldZ * mapScale + container.offsetHeight / 2);
+                    
+                    // Update scale indicator with more precise values when zoomed in
+                    const scaleIndicator = document.querySelector('.scale-indicator');
+                    if (scaleIndicator) {
+                        const blocksPerPixel = 1/mapScale;
+                        let scaleText;
+                        if (blocksPerPixel >= 1000000) {
+                            scaleText = `${(blocksPerPixel/1000000).toFixed(1)}M blocks/pixel`;
+                        } else if (blocksPerPixel >= 1000) {
+                            scaleText = `${(blocksPerPixel/1000).toFixed(1)}K blocks/pixel`;
+                        } else {
+                            scaleText = `${blocksPerPixel.toFixed(1)} blocks/pixel`;
+                        }
+                        scaleIndicator.innerHTML = scaleText;
+                    }
+                    
+                    refreshCoordinates();
+                }
+            }
+
+            function adjustZoom(factor) {
+                const oldScale = mapScale;
+                const newScale = mapScale * factor;
+                
+                // Enforce zoom limits
+                if (newScale >= MIN_SCALE && newScale <= MAX_SCALE) {
+                    mapScale = newScale;
+                    
+                    // Adjust offset to keep the center point stable
+                    const container = document.getElementById('heatmap');
+                    const centerX = container.offsetWidth / 2;
+                    const centerZ = container.offsetHeight / 2;
+                    
+                    mapOffsetX = centerX + ((mapOffsetX - centerX) * (mapScale / oldScale));
+                    mapOffsetZ = centerZ + ((mapOffsetZ - centerZ) * (mapScale / oldScale));
+                    
+                    // Update scale indicator
+                    const scaleIndicator = document.querySelector('.scale-indicator');
+                    if (scaleIndicator) {
+                        const blocksPerPixel = 1/mapScale;
+                        let scaleText;
+                        if (blocksPerPixel >= 1000000) {
+                            scaleText = `${(blocksPerPixel/1000000).toFixed(1)}M blocks/pixel`;
+                        } else if (blocksPerPixel >= 1000) {
+                            scaleText = `${(blocksPerPixel/1000).toFixed(1)}K blocks/pixel`;
+                        } else {
+                            scaleText = `${blocksPerPixel.toFixed(1)} blocks/pixel`;
+                        }
+                        scaleIndicator.innerHTML = scaleText;
+                    }
+                    
+                    refreshCoordinates();
+                }
+            }
+
+            function formatCoordinate(value) {
+                return value.toLocaleString('en-US', {
+                    maximumFractionDigits: 0
+                });
+            }
+
+            function initializeMap() {
+                const heatmap = document.getElementById('heatmap');
+                
+                // Add drag functionality
+                heatmap.addEventListener('mousedown', startDrag);
+                document.addEventListener('mousemove', drag);
+                document.addEventListener('mouseup', stopDrag);
+                
+                // Add scroll wheel zoom
+                heatmap.addEventListener('wheel', handleWheel, { passive: false });
+                
+                // Initial coordinate refresh
+                refreshCoordinates();
+            }
+
+            function handleWheel(e) {
+                e.preventDefault(); // Prevent page scroll
+                
+                // More granular zoom factors for smoother zooming
+                const zoomFactor = e.deltaY > 0 ? 0.95 : 1.05;
+                
+                // Get mouse position relative to container
+                const container = document.getElementById('heatmap');
+                const rect = container.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseZ = e.clientY - rect.top;
+                
+                // Calculate world coordinates before zoom
+                const oldScale = mapScale;
+                const worldX = (mouseX - mapOffsetX - container.offsetWidth / 2) / oldScale;
+                const worldZ = (mouseZ - mapOffsetZ - container.offsetHeight / 2) / oldScale;
+                
+                // Apply zoom
+                const newScale = mapScale * zoomFactor;
+                if (newScale >= MIN_SCALE && newScale <= MAX_SCALE) {
+                    mapScale = newScale;
+                    
+                    // Adjust offset to keep mouse position stable
+                    mapOffsetX = mouseX - (worldX * mapScale + container.offsetWidth / 2);
+                    mapOffsetZ = mouseZ - (worldZ * mapScale + container.offsetHeight / 2);
+                    
+                    // Update scale indicator with more precise values when zoomed in
+                    const scaleIndicator = document.querySelector('.scale-indicator');
+                    if (scaleIndicator) {
+                        const blocksPerPixel = 1/mapScale;
+                        let scaleText;
+                        if (blocksPerPixel >= 1000000) {
+                            scaleText = `${(blocksPerPixel/1000000).toFixed(1)}M blocks/pixel`;
+                        } else if (blocksPerPixel >= 1000) {
+                            scaleText = `${(blocksPerPixel/1000).toFixed(1)}K blocks/pixel`;
+                        } else {
+                            scaleText = `${blocksPerPixel.toFixed(1)} blocks/pixel`;
+                        }
+                        scaleIndicator.innerHTML = scaleText;
+                    }
+                    
+                    refreshCoordinates();
+                }
+            }
+
+            function startDrag(e) {
+                isDragging = true;
+                lastX = e.clientX;
+                lastZ = e.clientY;
+                
+                // Change cursor to grabbing
+                document.getElementById('heatmap').style.cursor = 'grabbing';
+            }
+
+            function drag(e) {
+                if (!isDragging) return;
+                
+                const deltaX = e.clientX - lastX;
+                const deltaZ = e.clientY - lastZ;
+                
+                mapOffsetX += deltaX;
+                mapOffsetZ += deltaZ;
+                
+                lastX = e.clientX;
+                lastZ = e.clientY;
+                
+                refreshCoordinates();
+            }
+
+            function stopDrag() {
+                isDragging = false;
+                // Reset cursor
+                document.getElementById('heatmap').style.cursor = 'grab';
+            }
+
+            // Initialize map when tab is shown
+            document.querySelector('[onclick="showTab(\'heatmap\')"]').addEventListener('click', () => {
+                setTimeout(initializeMap, 100);
+            });
+
+            // Auto-refresh coordinates
+            setInterval(refreshCoordinates, 10000);
+        </script>
+    </div>
+</body>
+</html>
